@@ -14,11 +14,14 @@ RunCPM - Z80 CP/M 2.2 emulator <https://github.com/MockbaTheBorg/RunCPM><br>
 * [M5Stack](http://www.m5stack.com/ "Title") (Fireで動作確認をしました。)<br>
 * Arduino IDE (1.8.13で動作確認をしました。)<br>
 * [Arduino core for the ESP32](https://github.com/espressif/arduino-esp32 "Title")
+* [LovyanGFXライブラリ](https://github.com/lovyan03/LovyanGFX "Title")
 * [SDdFatライブラリ](https://github.com/greiman/SdFat "Title") (1.1.4で動作確認をしました。2.x.xではコンパイルエラーになります。)
 * [M5Stack用カード型キーボードユニット](https://www.switch-science.com/catalog/5689/ "Title")
 * microSD カード
 * [Thumb type keyboard frame for M5Stack & CardKB](https://www.thingiverse.com/thing:4392325 "Title") (必要に応じて。）
 <br>
+
+ライブラリはArduino IDEの[スケッチ | ライブラリをインクルード |ライブラリを管理...] からインストールすると簡単です。
 
 ---
 
