@@ -3,7 +3,8 @@ M5Stackで動く超小型CP/Mマシン
 
 ![画像1](images/image1.png)<br><br>
 
-"VT100 Terminal Emulator"と"Z80 CP/M 2.2 emulator"を組み合わせた、M5Stackで動く超小型CP/Mマシンです。<br><br>
+"VT100 Terminal Emulator"と"Z80 CP/M 2.2 emulator"を組み合わせた、M5Stackで動く超小型CP/Mマシンです。<br>
+(注意：ディスプレイが1行53文字のなので、1行80文字を前提にしているプログラムは表示が崩れます。)<br><br>
 ベースにしたオリジナルはこちら。<br>
 VT100 Terminal Emulator for Arduino STM32 <https://github.com/ht-deko/vt100_stm32><br>
 RunCPM - Z80 CP/M 2.2 emulator <https://github.com/MockbaTheBorg/RunCPM><br>
@@ -36,5 +37,14 @@ RunCPM用のディスクの作り方などは、DEKO（@ht_deko）さんのこ�
 
 * [RunCPM (Z80 CP/M 2.2 エミュレータ)](https://ht-deko.com/arduino/runcpm.html "Title")<br><br><br>
 
+---
+
+### 補足 ###
+Nochi(@shikarunochi)さんから情報を頂きました。<br>
+キーボードのI2Cアドレスを変えれば、[M5Stack Faces QWERTYパネル](https://www.switch-science.com/catalog/6611/ "Title")でも動くそうです。
+
+![画像2](images/image2.png)<br><br>
+![画像3](images/image3.png)<br><br>
+<br><br>
 
 
