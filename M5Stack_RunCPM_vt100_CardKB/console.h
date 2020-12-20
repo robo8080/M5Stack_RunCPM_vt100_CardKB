@@ -1,6 +1,8 @@
 #ifndef CONSOLE_H
 #define CONSOLE_H
 
+#include "lgfx.h"
+
 /* see main.c for definition */
 
 uint8 mask8bit = 0x7f;		// TO be used for masking 8 bit characters (XMODEM related)
@@ -27,8 +29,10 @@ void _putcon(uint8 ch)		// Puts a character
 
 void _puts(const char* str)	// Puts a \0 terminated string
 {
+	tft.startWrite();
 	while (*str)
 		_putcon(*(str++));
+	tft.endWrite();
 }
 
 void _puthex8(uint8 c)		// Puts a HH hex string

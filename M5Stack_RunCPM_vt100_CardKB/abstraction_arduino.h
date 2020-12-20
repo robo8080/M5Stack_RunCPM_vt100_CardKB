@@ -502,13 +502,7 @@ uint8 _getch(void) {
 //	while (!Serial.available());
 //  return(Serial.read());
   bool needCursorUpdate = false;
-  Wire.requestFrom(CARDKB_ADDR, 1);
-  while (!Wire.available()) {
-    // カーソル表示処理
-    if (canShowCursor || needCursorUpdate)
-       dispCursor(needCursorUpdate);
-  }
-  uint8 ch = Wire.read();
+  uint8 ch = Wire.requestFrom(CARDKB_ADDR, 1) ? Wire.read() : 0;
   switch (ch) {
     case 0x07:
 //    tone(SPK_PIN, 4000, 583);

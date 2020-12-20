@@ -51,14 +51,12 @@ int lst_open = FALSE;
   vt100_stm32.ino - VT100 Terminal Emulator for Arduino STM32
   Copyright (c) 2018 Hideaki Tominaga. All rights reserved.
 */
-#define LGFX_M5STACK               // M5Stack (Basic / Gray / Go / Fire)
-#include <LovyanGFX.hpp>
+#include "lgfx.h"
 //#include <font6x8tt.h>            // 6x8 ドットフォント (TTBASIC 付属)
 //#include "font6x8e200.h"          // 6x8 ドットフォント (SHARP PC-E200 風)
 //#include "font6x8e500.h"          // 6x8 ドットフォント (SHARP PC-E500 風)
 #include "font6x8sc1602b.h"       // 6x8 ドットフォント (SUNLIKE SC1602B 風)
 #include "enum.h"
-static LGFX tft;                 // LGFXのインスタンスを作成。
 
 //#include <Adafruit_GFX_AS.h>      // Core graphics library
 //#include <Adafruit_ILI9341_STM.h> // Hardware-specific library
@@ -274,6 +272,7 @@ void sc_updateChar(uint16_t x, uint16_t y) {
   if (mode_ex.Flgs.ScreenReverse) swap(fore, back);
   uint16_t xx = x * CH_W;
   uint16_t yy = y * CH_H;
+  tft.startWrite();
 //  tft.setAddrWindow(xx, yy, xx + MAX_CH_X, yy + MAX_CH_Y);
 //  tft.setAddrWindow(xx, yy, MAX_CH_X, MAX_CH_Y);
   tft.setAddrWindow(xx, yy, CH_W, CH_H);
@@ -288,18 +287,21 @@ void sc_updateChar(uint16_t x, uint16_t y) {
     }
     ptr++;
   }
+  tft.endWrite();
 }
 
 // カーソルの描画
 void drawCursor(uint16_t x, uint16_t y) {
   uint16_t xx = x * CH_W;
   uint16_t yy = y * CH_H;
+  tft.startWrite();
 //  tft.setAddrWindow(xx, yy, xx + CH_W, yy + CH_H);
   tft.setAddrWindow(xx, yy, CH_W, CH_H);
   for (uint8_t i = 0; i < CH_H; i++) {
     for (uint8_t j = 0; j < CH_W; j++)
       tft.pushColor(TFT_WHITE);
   }
+  tft.endWrite();
 }
 // カーソルの表示
 void dispCursor1(bool forceupdate) {
@@ -357,6 +359,7 @@ void sc_updateLine(uint16_t ln) {
   union ATTR a;
   union COLOR l;
 
+  tft.startWrite();
   for (uint16_t i = 0; i < CH_H; i++) {            // 1文字高さ分ループ
     cnt = 0;
     for (uint16_t clm = 0; clm < SC_W; clm++) {    // 横文字数分ループ
@@ -364,8 +367,8 @@ void sc_updateLine(uint16_t ln) {
       c  = screen[idx];                            // キャラクタの取得
       a.value = attrib[idx];                       // 文字アトリビュートの取得
       l.value = colors[idx];                       // カラーアトリビュートの取得
-      uint16_t fore = aColors[l.Color.Foreground | (a.Bits.Blink << 3)];
-      uint16_t back = aColors[l.Color.Background | (a.Bits.Blink << 3)];
+      uint16_t fore = __builtin_bswap16(aColors[l.Color.Foreground | (a.Bits.Blink << 3)]);
+      uint16_t back = __builtin_bswap16(aColors[l.Color.Background | (a.Bits.Blink << 3)]);
       if (a.Bits.Reverse) swap(fore, back);
       if (mode_ex.Flgs.ScreenReverse) swap(fore, back);
       dt = fontTop[c * CH_H + i];                  // 文字内i行データの取得
@@ -378,8 +381,9 @@ void sc_updateLine(uint16_t ln) {
         cnt++;
       }
     }
-    tft.pushColors(buf[i & 1], SP_W, true);
+    tft.writePixels(buf[i & 1], SP_W, false);
   }
+  tft.endWrite();
 
   // SPI1 の DMA 転送待ち (SPI1 DMA1 CH3)
   //  while ((dma_get_isr_bits(DMA1, DMA_CH3) & DMA_ISR_TCIF1) == 0);
@@ -422,12 +426,14 @@ void scroll() {
       attrib[idx2] = defaultAttr.value;
       colors[idx2] = defaultColor.value;
     }
+    tft.startWrite();
 //    tft.setAddrWindow(0, M_TOP * CH_H, MAX_SP_X, (M_BOTTOM + 1) * CH_H - 1);
 //    tft.setAddrWindow(0, M_TOP * CH_H, SP_W, (M_BOTTOM + 1) * CH_H);
     tft.setAddrWindow(0, M_TOP * CH_H, SP_W, ((M_BOTTOM + 1) * CH_H) - (M_TOP * CH_H));
     for (uint8_t y = M_TOP; y <= M_BOTTOM; y++)
       sc_updateLine(y);
     YP = M_BOTTOM;
+    tft.endWrite();
   }
 }
 
@@ -763,7 +769,9 @@ void printChar(char c) {
 
 // 文字列描画
 void printString(const char *str) {
+  tft.startWrite();
   while (*str) printChar(*str++);
+  tft.endWrite();
 }
 
 // エスケープシーケンス
@@ -871,10 +879,12 @@ void cursorPosition(uint8_t y, uint8_t x) {
 // 画面を再描画
 void refreshScreen() {
 
+  tft.startWrite();
 //  tft.setAddrWindow(0, 0, MAX_SP_X, MAX_SP_Y);
   tft.setAddrWindow(0, 0, SP_W, SP_H);
   for (uint8_t i = 0; i < SC_H; i++)
     sc_updateLine(i);
+  tft.endWrite();
 }
 
 // ED (Erase In Display): 画面を消去
@@ -910,11 +920,13 @@ void eraseInDisplay(uint8_t m) {
     memset(&screen[idx], 0x00, n);
     memset(&attrib[idx], defaultAttr.value, n);
     memset(&colors[idx], defaultColor.value, n);
+    tft.startWrite();
 //    tft.setAddrWindow(0, sl * CH_H, MAX_SP_X, (el + 1) * CH_H - 1);
 //    tft.setAddrWindow(0, sl * CH_H, SP_W, ((el + 1) - sl) * CH_H);
     tft.setAddrWindow(0, sl * CH_H, SP_W, ((el + 1) * CH_H) - (sl * CH_H));
     for (uint8_t i = sl; i <= el; i++)
       sc_updateLine(i);
+    tft.endWrite();
   }
 }
 
@@ -947,8 +959,10 @@ void eraseInLine(uint8_t m) {
     memset(&colors[slp], defaultColor.value, n);
 //    tft.setAddrWindow(0, YP * CH_H, MAX_SP_X, (YP + 1) * CH_H - 1);
 //    tft.setAddrWindow(0, YP * CH_H, SP_W, CH_H);
+    tft.startWrite();
     tft.setAddrWindow(0, YP * CH_H, SP_W, ((YP + 1) * CH_H) - (YP * CH_H));
     sc_updateLine(YP);
+    tft.endWrite();
   }
 }
 
@@ -972,11 +986,13 @@ void insertLine(uint8_t v) {
   memset(&screen[idx], 0x00, n);
   memset(&attrib[idx], defaultAttr.value, n);
   memset(&colors[idx], defaultColor.value, n);
+  tft.startWrite();
 //  tft.setAddrWindow(0, YP * CH_H, MAX_SP_X, (M_BOTTOM + 1) * CH_H - 1);
 //  tft.setAddrWindow(0, YP * CH_H, SP_W, (M_BOTTOM + 1) * CH_H);
   tft.setAddrWindow(0, YP * CH_H, SP_W, ((M_BOTTOM + 1) * CH_H) - (YP * CH_H));
   for (uint8_t y = YP; y <= M_BOTTOM; y++)
     sc_updateLine(y);
+  tft.endWrite();
 }
 
 // DL (Delete Line): カーソルのある行から Ps 行を削除
@@ -1000,11 +1016,13 @@ void deleteLine(uint8_t v) {
   memset(&screen[idx3], 0x00, n);
   memset(&attrib[idx3], defaultAttr.value, n);
   memset(&colors[idx3], defaultColor.value, n);
+  tft.startWrite();
 //  tft.setAddrWindow(0, YP * CH_H, MAX_SP_X, (M_BOTTOM + 1) * CH_H - 1);
 //  tft.setAddrWindow(0, YP * CH_H, SP_W, (M_BOTTOM + 1) * CH_H);
   tft.setAddrWindow(0, YP * CH_H, SP_W, ((M_BOTTOM + 1) * CH_H) - (YP * CH_H));
   for (uint8_t y = YP; y <= M_BOTTOM; y++)
     sc_updateLine(y);
+  tft.endWrite();
 }
 
 // CPR (Cursor Position Report): カーソル位置のレポート
@@ -1355,6 +1373,7 @@ void doubleWidthLine() {
 
 // DECALN (Screen Alignment Display): 画面を文字‘E’で埋める
 void screenAlignmentDisplay() {
+  tft.startWrite();
 //  tft.setAddrWindow(0, 0, MAX_SP_X, MAX_SP_Y);
   tft.setAddrWindow(0, 0, SP_W, SP_H);
   memset(screen, 0x45, SCSIZE);
@@ -1362,6 +1381,7 @@ void screenAlignmentDisplay() {
   memset(colors, defaultColor.value, SCSIZE);
   for (uint8_t y = 0; y < SC_H; y++)
     sc_updateLine(y);
+  tft.endWrite();
 }
 
 // "(" G0 Sets Sequence
@@ -1404,6 +1424,8 @@ void unknownSequence(em m, char c) {
       if (isDECPrivateMode)
         s = s + "?";
       break;
+    default:
+      break;
   }
   Serial.print(F("Unknown: "));
   Serial.print(s);
@@ -1426,12 +1448,24 @@ void handle_timer() {
 
 // セットアップ
 void setup() {
-  Wire.begin();    // Define(SDA, SCL)
   Serial.begin(9600);
   //  Serial3.begin(DEFAULT_BAUDRATE);
 
   // TFT の初期化
   tft.init();
+
+  if (tft.getBoard() == lgfx::board_t::board_M5StackCore2)
+  { // M5StackCore2の外部ポートを有効にする (AXP192に対して外部ポートの5V出力を指示)
+    lgfx::i2c::writeRegister8(I2C_NUM_1, 0x34, 0x91, 0xF0, 0x0F);
+    lgfx::i2c::writeRegister8(I2C_NUM_1, 0x34, 0x90, 0x02, 0xF8);
+    lgfx::i2c::writeRegister8(I2C_NUM_1, 0x34, 0x12, 0x40, 0xFF);
+    Wire.begin(32,33);
+  }
+  else
+  {
+    Wire.begin();
+  }
+
   fontTop = (uint8_t*)font6x8tt + 3;
   resetToInitialState();
   printString("\e[0;44m *** Terminal Init *** \e[0m\n");
