@@ -504,26 +504,30 @@ int _kbhit(void) {
 uint8 _getch(void) {
 //	while (!Serial.available());
 //  return(Serial.read());
-  bool needCursorUpdate = false;
-  if (!kbhit_char) _kbhit();
-  uint8 ch = kbhit_char;
-  kbhit_char = 0;
-  switch (ch) {
-    case 0x07:
-//    tone(SPK_PIN, 4000, 583);
-      break;
-    case 0xa8:    //Fn-C
-      ch = 0x03;  //Ctrl-C
-      break;
-    case 0x9f:    //Fn-H
-      ch = 0x08;  //Ctrl-H
-      break;
-    default:
-      break;
-  }
-  needCursorUpdate = ch;
-  if (canShowCursor || needCursorUpdate)
-     dispCursor(needCursorUpdate);
+  uint8 ch = 0;
+  do
+  {
+    if (_kbhit())
+    {
+      ch = kbhit_char;
+      kbhit_char = 0;
+      switch (ch) {
+        case 0x07:
+    //    tone(SPK_PIN, 4000, 583);
+          break;
+        case 0xa8:    //Fn-C
+          ch = 0x03;  //Ctrl-C
+          break;
+        case 0x9f:    //Fn-H
+          ch = 0x08;  //Ctrl-H
+          break;
+        default:
+          break;
+      }
+    }
+    if (canShowCursor || ch)
+       dispCursor(ch);
+  } while (!ch);
   return(ch);
 }
 
