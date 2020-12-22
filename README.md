@@ -47,4 +47,11 @@ Nochi(@shikarunochi)さんから情報を頂きました。<br>
 ![画像3](images/image3.png)<br><br>
 <br><br>
 
+---
+
+### Facesでの制御文字の入力方法 ###
+* Ctrl-C : Alt-V
+
+<br><br>
+
 
