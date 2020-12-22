@@ -493,16 +493,21 @@ extern bool canShowCursor;    // カーソル表示可能か？
 extern void dispCursor(bool forceupdate);
 extern void printString(const char *str);
 
+static uint8 kbhit_char = 0;
+
 int _kbhit(void) {
 //  return(Serial.available());
-  return(Wire.available());
+  if (!kbhit_char) kbhit_char = Wire.requestFrom(CARDKB_ADDR, 1) ? Wire.read() : 0;
+  return kbhit_char;
 }
 
 uint8 _getch(void) {
 //	while (!Serial.available());
 //  return(Serial.read());
   bool needCursorUpdate = false;
-  uint8 ch = Wire.requestFrom(CARDKB_ADDR, 1) ? Wire.read() : 0;
+  if (!kbhit_char) _kbhit();
+  uint8 ch = kbhit_char;
+  kbhit_char = 0;
   switch (ch) {
     case 0x07:
 //    tone(SPK_PIN, 4000, 583);
