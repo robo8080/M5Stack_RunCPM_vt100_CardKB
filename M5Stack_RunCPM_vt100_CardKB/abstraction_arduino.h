@@ -497,37 +497,38 @@ static uint8 kbhit_char = 0;
 
 int _kbhit(void) {
 //  return(Serial.available());
-  if (!kbhit_char) kbhit_char = Wire.requestFrom(CARDKB_ADDR, 1) ? Wire.read() : 0;
+  if (!kbhit_char)
+  {
+    if (Wire.requestFrom(CARDKB_ADDR, 1))
+    {
+      kbhit_char = Wire.read();
+      switch (kbhit_char)
+      {
+      case 0x07:
+  //    tone(SPK_PIN, 4000, 583);
+        break;
+      case 0xa8:    //Fn-C
+        kbhit_char = 0x03;  //Ctrl-C
+        break;
+      case 0x9f:    //Fn-H
+        kbhit_char = 0x08;  //Ctrl-H
+        break;
+      default:
+        break;
+      }
+    }
+  }
+  if (canShowCursor || kbhit_char)
+     dispCursor(kbhit_char);
   return kbhit_char;
 }
 
 uint8 _getch(void) {
 //	while (!Serial.available());
 //  return(Serial.read());
-  uint8 ch = 0;
-  do
-  {
-    if (_kbhit())
-    {
-      ch = kbhit_char;
-      kbhit_char = 0;
-      switch (ch) {
-        case 0x07:
-    //    tone(SPK_PIN, 4000, 583);
-          break;
-        case 0xa8:    //Fn-C
-          ch = 0x03;  //Ctrl-C
-          break;
-        case 0x9f:    //Fn-H
-          ch = 0x08;  //Ctrl-H
-          break;
-        default:
-          break;
-      }
-    }
-    if (canShowCursor || ch)
-       dispCursor(ch);
-  } while (!ch);
+  while (!_kbhit());
+  uint8 ch = kbhit_char;
+  kbhit_char = 0;
   return(ch);
 }
 
