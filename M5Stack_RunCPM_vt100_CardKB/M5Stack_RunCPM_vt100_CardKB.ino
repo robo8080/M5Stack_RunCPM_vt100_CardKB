@@ -1,9 +1,12 @@
 #include <Wire.h>
+#include <driver/dac.h>
 
 //-----RunCPM------------------------------------------------------
 #include "globals.h"
 
 #include <SPI.h>
+
+#define COLUMN80
 
 #ifdef ARDUINO_TEENSY41
 #include <SdFat-beta.h>
@@ -55,7 +58,13 @@ int lst_open = FALSE;
 //#include <font6x8tt.h>            // 6x8 ドットフォント (TTBASIC 付属)
 //#include "font6x8e200.h"          // 6x8 ドットフォント (SHARP PC-E200 風)
 //#include "font6x8e500.h"          // 6x8 ドットフォント (SHARP PC-E500 風)
-#include "font6x8sc1602b.h"       // 6x8 ドットフォント (SUNLIKE SC1602B 風)
+
+#ifdef COLUMN80
+#include "font4x8yk.h"              // 4x8 ドットフォント
+#else
+#include "font6x8sc1602b.h"         // 6x8 ドットフォント (SUNLIKE SC1602B 風)
+#endif
+
 #include "enum.h"
 
 //#include <Adafruit_GFX_AS.h>      // Core graphics library
@@ -64,7 +73,7 @@ int lst_open = FALSE;
 //#include <font6x8tt.h>            // 6x8 ドットフォント (TTBASIC 付属)
 //#include "font6x8e200.h"          // 6x8 ドットフォント (SHARP PC-E200 風)
 //#include "font6x8e500.h"          // 6x8 ドットフォント (SHARP PC-E500 風)
-#include "font6x8sc1602b.h"       // 6x8 ドットフォント (SUNLIKE SC1602B 風)
+//#include "font6x8sc1602b.h"       // 6x8 ドットフォント (SUNLIKE SC1602B 風)
 
 //// TFT 制御用ピン
 //#define TFT_CS   PA4
@@ -95,11 +104,19 @@ int lst_open = FALSE;
 
 // フォント管理用
 uint8_t* fontTop;
+#ifdef COLUMN80
+#define CH_W    4                       // フォント横サイズ
+#else
 #define CH_W    6                       // フォント横サイズ
+#endif
 #define CH_H    8                       // フォント縦サイズ
 
 // スクリーン管理用
+#ifdef COLUMN80
+#define SC_W    80                      // キャラクタスクリーン横サイズ
+#else
 #define SC_W    53                      // キャラクタスクリーン横サイズ
+#endif
 #define SC_H    30                      // キャラクタスクリーン縦サイズ
 uint16_t M_TOP = 0;                     // 上マージン行
 uint16_t M_BOTTOM = SC_H - 1;           // 下マージン行
@@ -256,6 +273,29 @@ int16_t vals[10] = {0};
 // 関数
 // -----------------------------------------------------------------------------
 
+// 輝度を落とした色(太字表示に使用)の生成
+static inline uint16_t RGB565dark(uint16_t col) {
+    uint16_t r = 0;
+    uint16_t g = 0;
+    uint16_t b = 0;
+    uint16_t res = 0;
+
+#if 1
+    // 輝度75%
+    r = ((col & 0xf800) >> 11) * 3 / 4;
+    g = ((col & 0x07e0) >> 5) * 3 / 4;
+    b =  (col & 0x001f) * 3 / 4;
+#else
+    // 輝度66%
+    r = ((col & 0xf800) >> 11) * 2 / 3;
+    g = ((col & 0x07e0) >> 5) * 2 / 3;
+    b =  (col & 0x001f) * 2 / 3;
+#endif
+    res = (r << 11) | (g << 5) | b;
+
+    return res;
+}
+
 // 指定位置の文字の更新表示
 void sc_updateChar(uint16_t x, uint16_t y) {
   uint16_t idx = SC_W * y + x;
@@ -268,6 +308,8 @@ void sc_updateChar(uint16_t x, uint16_t y) {
   l.value = colors[idx];             // カラーアトリビュートの取得
   uint16_t fore = aColors[l.Color.Foreground | (a.Bits.Blink << 3)];
   uint16_t back = aColors[l.Color.Background | (a.Bits.Blink << 3)];
+  uint16_t foreDark = RGB565dark(fore);
+  uint16_t d = 0;
   if (a.Bits.Reverse) swap(fore, back);
   if (mode_ex.Flgs.ScreenReverse) swap(fore, back);
   uint16_t xx = x * CH_W;
@@ -280,7 +322,9 @@ void sc_updateChar(uint16_t x, uint16_t y) {
     bool prev = (a.Bits.Underline && (i == MAX_CH_Y));
     for (uint8_t j = 0; j < CH_W; j++) {
       bool pset = ((*ptr) & (0x80 >> j));
-      uint16_t d = (pset || prev) ? fore : back;
+      d = back;
+      if(prev) {d = foreDark;}
+      if(pset) {d = fore;}
       tft.pushColor(d);
       if (a.Bits.Bold)
         prev = pset;
@@ -293,14 +337,11 @@ void sc_updateChar(uint16_t x, uint16_t y) {
 // カーソルの描画
 void drawCursor(uint16_t x, uint16_t y) {
   uint16_t xx = x * CH_W;
-  uint16_t yy = y * CH_H;
+  uint16_t yy = y * CH_H + CH_H - 1;
   tft.startWrite();
-//  tft.setAddrWindow(xx, yy, xx + CH_W, yy + CH_H);
-  tft.setAddrWindow(xx, yy, CH_W, CH_H);
-  for (uint8_t i = 0; i < CH_H; i++) {
-    for (uint8_t j = 0; j < CH_W; j++)
-      tft.pushColor(TFT_WHITE);
-  }
+  tft.setAddrWindow(xx, yy, CH_W, 1);
+  for (uint8_t j = 0; j < CH_W; j++)
+    tft.pushColor(TFT_WHITE);
   tft.endWrite();
 }
 // カーソルの表示
@@ -369,13 +410,18 @@ void sc_updateLine(uint16_t ln) {
       l.value = colors[idx];                       // カラーアトリビュートの取得
       uint16_t fore = __builtin_bswap16(aColors[l.Color.Foreground | (a.Bits.Blink << 3)]);
       uint16_t back = __builtin_bswap16(aColors[l.Color.Background | (a.Bits.Blink << 3)]);
+      uint16_t foreDark = __builtin_bswap16(RGB565dark(aColors[l.Color.Foreground | (a.Bits.Blink << 3)]));
+      uint16_t d = 0;
       if (a.Bits.Reverse) swap(fore, back);
       if (mode_ex.Flgs.ScreenReverse) swap(fore, back);
       dt = fontTop[c * CH_H + i];                  // 文字内i行データの取得
       bool prev = (a.Bits.Underline && (i == MAX_CH_Y));
       for (uint16_t j = 0; j < CH_W; j++) {
         bool pset = dt & (0x80 >> j);
-        buf[i & 1][cnt] = (pset || prev) ? fore : back;
+        d = back;
+        if(prev) { d = foreDark; }
+        if(pset) { d = fore; }
+        buf[i & 1][cnt] = d;
         if (a.Bits.Bold)
           prev = pset;
         cnt++;
@@ -486,8 +532,8 @@ void printChar(char c) {
             break;
           case '=':
             // DECKPAM (Keypad Application Mode): アプリケーションキーパッドモードにセット
-            keypadApplicationMode();
-            break;
+            escMode = em::KPIM1;
+            return;
           case '>':
             // DECKPNM (Keypad Numeric Mode): 数値キーパッドモードにセット
             keypadNumericMode();
@@ -515,6 +561,9 @@ void printChar(char c) {
           case 'c':
             // RIS (Reset To Initial State): リセット
             resetToInitialState();
+            break;
+          case 'T':
+            eraseInLine(0);
             break;
           default:
             // 未確認のシーケンス
@@ -710,9 +759,37 @@ void printChar(char c) {
     return;
   }
 
-  // 改行 (LF / VT / FF)
-  if ((c == 0x0a) || (c == 0x0b) || (c == 0x0c)) {
+  // KeyPadApplication Modeシーケンス1
+  if (escMode == em::KPIM1) {
+    escMode = em::KPIM2;
+    vals[0] = c - ' ' + 1;
+    return;
+  }
+
+  // KeyPadApplication Modeシーケンス2
+  if (escMode == em::KPIM2) {
+    vals[1] = c - ' ' + 1;
+    cursorPosition(vals[0], vals[1]); // 指定位置にカーソルを移動
+    clearParams(em::NONE);
+    return;
+  }
+
+  // 改行 (LF / FF)
+  if ((c == 0x0a) || (c == 0x0c)) {
     scroll();
+    return;
+  }
+
+  // 垂直TAB (VT)
+  if (c == 0x0b) {
+    cursorUp(1);
+    return;
+  }
+
+  // 画面消去
+  if (c == 0x1a) {
+    eraseInDisplay(2);
+    setCursorToHome();
     return;
   }
 
@@ -724,12 +801,7 @@ void printChar(char c) {
 
   // バックスペース (BS)
   if ((c == 0x08) || (c == 0x7f)) {
-    cursorBackward(1);
-    uint16_t idx = YP * SC_W + XP;
-    screen[idx] = 0;
-    attrib[idx] = 0;
-    colors[idx] = cColor.value;
-    sc_updateChar(XP, YP);
+    cursorBackward(1); // BSに続いて" "文字が送られてくるのでカーソルを戻すのみとする
     return;
   }
 
@@ -1441,14 +1513,18 @@ void timer_task(void *args) {
   }
 }
 
+extern void randomizeR();
+
 // タイマーハンドラ
 void handle_timer() {
   canShowCursor = true;
+  randomizeR(); // Z80のRefresh Registerに乱数を書き込む
 }
 
 // セットアップ
 void setup() {
-  Serial.begin(9600);
+  dacWrite(25, 0); // Speaker OFF(M5Stack Faces装着時のノイズ対策)
+  Serial.begin(115200);
   //  Serial3.begin(DEFAULT_BAUDRATE);
 
   // TFT の初期化
@@ -1465,8 +1541,11 @@ void setup() {
   {
     Wire.begin();
   }
-
+#ifdef COLUMN80
+  fontTop = (uint8_t*)font4x8tt + 3;
+#else
   fontTop = (uint8_t*)font6x8tt + 3;
+#endif
   resetToInitialState();
   printString("\e[0;44m *** Terminal Init *** \e[0m\n");
   setCursorToHome();

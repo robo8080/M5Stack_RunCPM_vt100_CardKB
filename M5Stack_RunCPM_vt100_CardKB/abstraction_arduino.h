@@ -2,7 +2,13 @@
 #define ABSTRACT_H
 #include <Wire.h>
 
-#define CARDKB_ADDR 0x5F
+//#define USE_FACES
+
+#ifdef USE_FACES
+#define CARDKB_ADDR 0x08 // M5Stack Faces QWERTY Panel
+#else
+#define CARDKB_ADDR 0x5F // CardKB
+#endif
 
 #ifdef PROFILE
 #define printf(a, b) Serial.println(b)
@@ -497,16 +503,28 @@ static uint8 kbhit_char = 0;
 
 int _kbhit(void) {
 //  return(Serial.available());
+  static char preCharCode = 0;
+  static char nowCharCode = 0;
   if (!kbhit_char)
   {
     if (Wire.requestFrom(CARDKB_ADDR, 1))
     {
       kbhit_char = Wire.read();
+      nowCharCode = kbhit_char;
       switch (kbhit_char)
       {
       case 0x07:
   //    tone(SPK_PIN, 4000, 583);
         break;
+#ifdef USE_FACES
+      case 0x0a:
+        // M5Stack Faces のEnterキー押下時の"0x0d 0x0a"の0x0aを無視する
+        if(preCharCode == 0x0d) {
+          kbhit_char = 0x00;
+        }
+        break;
+#endif
+      case 0xff:    // M5Stack FacesでAltキーが効かないため0xffもCtrl-C扱いとする暫定対処
       case 0xa8:    //Fn-C
         kbhit_char = 0x03;  //Ctrl-C
         break;
@@ -516,6 +534,7 @@ int _kbhit(void) {
       default:
         break;
       }
+      preCharCode = nowCharCode;
     }
   }
   if (canShowCursor || kbhit_char)
@@ -524,12 +543,15 @@ int _kbhit(void) {
 }
 
 uint8 _getch(void) {
-//	while (!Serial.available());
-//  return(Serial.read());
+#if 0
+  while (!Serial.available());
+  return(Serial.read());
+#else
   while (!_kbhit());
   uint8 ch = kbhit_char;
   kbhit_char = 0;
   return(ch);
+#endif
 }
 
 uint8 _getche(void) {
