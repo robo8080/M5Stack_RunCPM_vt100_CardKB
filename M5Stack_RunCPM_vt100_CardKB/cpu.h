@@ -1442,6 +1442,18 @@ void Z80debug(void) {
 }
 #endif
 
+void randomizeR() {
+    int rr = 0;
+    rr = rand() & 0x7f;
+    IR = (IR & 0xffffff80) | rr;
+}
+
+static inline void updateR() {
+    int rr = 0;
+    rr = ((IR & 0x7f) + 1) & 0x7f;
+    IR = (IR & 0xffffff80) | rr;
+}
+
 static inline void Z80run(void) {
 	register uint32 temp = 0;
 	register uint32 acu;
@@ -1467,6 +1479,8 @@ static inline void Z80run(void) {
 		if (Debug)
 			Z80debug();
 #endif
+
+		updateR();
 
 		PCX = PC;
 
