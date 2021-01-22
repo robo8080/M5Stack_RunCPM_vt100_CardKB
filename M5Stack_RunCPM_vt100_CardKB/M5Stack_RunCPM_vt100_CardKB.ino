@@ -3,7 +3,7 @@
 
 //-----RunCPM------------------------------------------------------
 #include "globals.h"
-
+#include <Ticker.h>
 #include <SPI.h>
 
 #define COLUMN80
@@ -101,6 +101,9 @@ int lst_open = FALSE;
 
 // キーボード制御用
 //PS2Keyboard keyboard;
+
+  // カーソル用タイマー
+Ticker timer_cursor;
 
 // フォント管理用
 uint8_t* fontTop;
@@ -1506,13 +1509,6 @@ void unknownSequence(em m, char c) {
 }
 
 // -----------------------------------------------------------------------------
-void timer_task(void *args) {
-  for (;;) {
-    handle_timer();
-    vTaskDelay(250);
-  }
-}
-
 extern void randomizeR();
 
 // タイマーハンドラ
@@ -1551,14 +1547,9 @@ void setup() {
   setCursorToHome();
 
   // カーソル用タイマーの設定
-  xTaskCreate(timer_task,        /* Function to implement the task */
-              "timer_task",      /* Name of the task */
-              1024,         /* Stack size in words */
-              NULL,          /* Task input parameter */
-              2,            /* Priority of the task */
-              NULL);        /* Task handle. */
+  timer_cursor.attach(0.2, handle_timer); // 200ms
 
-  //-----------------------------------------------------------------
+//-----------------------------------------------------------------
 #ifdef DEBUGLOG
   _sys_deletefile((uint8 *)LogName);
 #endif

@@ -27,6 +27,12 @@
 #define HostOS 0x06
 #endif
 
+PROGMEM const uint8 KEY_TBL[48] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1e, 0x1c, 0x1f, 0x1b, 0x1d, 0x00, 
+                                   0x00, 0x11, 0x17, 0x05, 0x12, 0x14, 0x19, 0x15, 0x09, 0x0f, 0x10, 0x00, 
+                                   0x00, 0x00, 0x01, 0x13, 0x04, 0x06, 0x07, 0x08, 0x0a, 0x0b, 0x0c, 0x00, 
+                                   0x00, 0x00, 0x1a, 0x18, 0x03, 0x16, 0x02, 0x0e, 0x0d, 0x00, 0x00, 0x00};
+
+
 /* Memory abstraction functions */
 /*===============================================================================*/
 bool _RamLoad(char* filename, uint16 address) {
@@ -525,11 +531,22 @@ int _kbhit(void) {
         break;
 #endif
       case 0xff:    // M5Stack FacesでAltキーが効かないため0xffもCtrl-C扱いとする暫定対処
-      case 0xa8:    //Fn-C
+//      case 0xa8:    //Fn-C
         kbhit_char = 0x03;  //Ctrl-C
         break;
-      case 0x9f:    //Fn-H
-        kbhit_char = 0x08;  //Ctrl-H
+//      case 0x9f:    //Fn-H
+//        kbhit_char = 0x08;  //Ctrl-H
+//        break;
+      case 0x82:          // Fn-2 (Ctrl+@)
+      case 0x86:          // Fn-6 (Ctrl+^)
+      case 0x87:          // Fn-7 (Ctrl+\)
+      case 0x88:          // Fn-8 (Ctrl+_)
+      case 0x89:          // Fn-9 (Ctrl+[)
+      case 0x8a:          // Fn-0 (Ctrl+])
+      case 0x8d ... 0x96: // Fn-Q..P
+      case 0x9a ... 0xa2: // Fn-A..L
+      case 0xa6 ... 0xac: // Fn-Z..M
+        kbhit_char = KEY_TBL[kbhit_char - 0x80];
         break;
       default:
         break;
